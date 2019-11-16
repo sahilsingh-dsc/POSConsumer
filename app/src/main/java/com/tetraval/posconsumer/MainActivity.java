@@ -3,11 +3,14 @@ package com.tetraval.posconsumer;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -17,13 +20,16 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
     DatabaseReference posRef;
     EditText txtBal, txtUserID;
     Button btnAddBal;
+    ListView listView;
     String amount = "0";
     TextView txtCurrentBal;
 
@@ -35,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
         txtBal = findViewById(R.id.txtBal);
         txtUserID = findViewById(R.id.txtUserID);
         btnAddBal = findViewById(R.id.btnAddBal);
+        listView = findViewById(R.id.listView);
         txtCurrentBal = findViewById(R.id.txtCurrentBal);
 
         posRef = FirebaseDatabase.getInstance().getReference("request");
@@ -62,6 +69,9 @@ public class MainActivity extends AppCompatActivity {
                 addBalance(balance_to_add);
             }
         });
+
+        fetchTransactions();
+
     }
 
     private void addBalance(String balance_to_add){
@@ -70,12 +80,50 @@ public class MainActivity extends AppCompatActivity {
         int updated_balance = current_balance+add_balance;
         posRef = FirebaseDatabase.getInstance().getReference("request");
         posRef.child("amount").setValue(updated_balance);
-        posRef = FirebaseDatabase.getInstance().getReference("user_transactions");
+        posRef = FirebaseDatabase.getInstance().getReference("transactions");
         HashMap<String, String> hashMap = new HashMap<String, String>();
         hashMap.put("amount", balance_to_add);
+        hashMap.put("user", "--");
+        hashMap.put("type", "1");
         posRef.push().setValue(hashMap);
         Toast.makeText(MainActivity.this, "Balance Added!", Toast.LENGTH_SHORT).show();
         txtBal.setText("");
     }
+
+    private void fetchTransactions(){
+
+        final ArrayList<String> txn = new ArrayList<>();
+        final String[] txn_list = new String[1];
+        posRef = FirebaseDatabase.getInstance().getReference("transactions");
+        posRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                txn.clear();
+                for (DataSnapshot dataSnapshot1 : dataSnapshot.getChildren()){
+                    String user = dataSnapshot1.child("user").getValue().toString();
+                    String amount = dataSnapshot1.child("amount").getValue().toString();
+                    String type = dataSnapshot1.child("type").getValue().toString();
+                    if (type.equals("1")){
+                       txn_list[0] = "Rs. "+amount+" add to wallet";
+                    }
+                    if (type.equals("0")){
+                        txn_list[0] = "Rs. "+amount+" paid to merchant.";
+                    }
+                    txn.add(txn_list[0]);
+                }
+
+                Context context;
+                ArrayAdapter arrayAdapter = new ArrayAdapter<String>(getApplicationContext(), R.layout.support_simple_spinner_dropdown_item, txn);
+                listView.setAdapter(arrayAdapter);
+
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+    }
+
 
 }
